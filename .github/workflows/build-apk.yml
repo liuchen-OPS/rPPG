@@ -46,8 +46,14 @@ jobs:
     - name: Prepare main.py
       run: cp main_webview.py main.py
     
+    - name: Initialize buildozer
+      run: |
+        buildozer init || true
+        mkdir -p ~/.buildozer/android/platform/android-sdk
+    
     - name: Build APK
-      run: buildozer android debug
+      run: |
+        echo "y" | buildozer android debug || echo "y" | buildozer android debug
       timeout-minutes: 90
       env:
         BUILDOZER_WARN_ON_ROOT: 0
