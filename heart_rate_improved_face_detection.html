@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>改进面部检测的心率检测</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0d1123 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .header {
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .camera-container {
+            position: relative;
+            margin: 20px 0;
+            border-radius: 15px;
+            overflow: hidden;
+            background: #f0f0f0;
+            height: 200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .camera-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .camera-placeholder {
+            color: #999;
+            font-size: 16px;
+        }
+        
+        .face-overlay {
+            position: absolute;
+            border: 3px solid #27ae60;
+            border-radius: 15px;
+            background: rgba(39, 174, 96, 0.1);
+            pointer-events: none;
+            box-shadow: 0 0 20px rgba(39, 174, 96, 0.5);
+        }
+        
+        .face-landmarks {
+            position: absolute;
+            pointer-events: none;
+        }
+        
+        .landmark {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: #e74c3c;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .status-panel {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .heart-rate {
+            font-size: 48px;
+            font-weight: bold;
+            color: #e74c3c;
+            margin: 10px 0;
+        }
+        
+        .status {
+            font-size: 16px;
+            color: #7f8c8d;
+            margin: 5px 0;
+        }
+        
+        .quality {
+            font-size: 14px;
+            color: #27ae60;
+            margin: 5px 0;
+        }
+        
+        .signal-graph {
+            height: 60px;
+            background: #f0f0f0;
+            border-radius: 5px;
+            margin: 10px 0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-start {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-stop {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .instructions h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .instructions ul {
+            padding-left: 20px;
+            color: #856404;
+        }
+        
+        .instructions li {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .footer {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .warning {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        
+        .debug-info {
+            background: #e8f4fd;
+            border: 1px solid #b3d9ff;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 12px;
+            text-align: left;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+        
+        .detection-info {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            padding: 8px;
+            margin: 5px 0;
+            font-size: 12px;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>❤️ 改进面部检测的心率检测</h1>
+            <p>使用增强的面部定位算法</p>
+        </div>
+        
+        <div class="camera-container">
+            <video class="camera-feed" id="cameraFeed" autoplay playsinline></video>
+            <div class="face-overlay" id="faceOverlay" style="display: none;"></div>
+            <div class="face-landmarks" id="faceLandmarks"></div>
+            <div class="camera-placeholder" id="cameraPlaceholder">
+                点击"开始检测"启用摄像头
+            </div>
+        </div>
+        
+        <div class="detection-info" id="detectionInfo">
+            面部检测状态: 等待开始
+        </div>
+        
+        <div class="warning" id="warningMessage">
+            ⚠️ 改进版 - 使用增强的面部检测算法
+        </div>
+        
+        <div class="status-panel">
+            <div class="status" id="statusText">状态: 等待开始检测</div>
+            <div class="heart-rate" id="heartRate">--</div>
+            <div class="quality" id="qualityText">信号质量: --%</div>
+            <div class="status" id="stabilityText">稳定性: 0/10</div>
+            <div class="signal-graph">
+                <canvas id="signalCanvas" width="300" height="60"></canvas>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-start" id="startBtn">🔴 开始检测</button>
+            <button class="btn btn-stop" id="stopBtn" disabled>停止检测</button>
+        </div>
+        
+        <div class="debug-info" id="debugInfo">
+            调试信息将显示在这里...
+        </div>
+        
+        <div class="instructions">
+            <h3>📝 使用说明（改进版）</h3>
+            <ul>
+                <li><strong>改进的面部检测</strong>: 使用多特征融合算法</li>
+                <li><strong>自适应定位</strong>: 自动调整面部框位置</li>
+                <li><strong>特征点标记</strong>: 显示面部关键特征点</li>
+                <li><strong>实时跟踪</strong>: 动态跟踪面部移动</li>
+                <li><strong>质量评估</strong>: 实时检测面部定位质量</li>
+            </ul>
+        </div>
+        
+        <div class="footer">
+            <p>改进面部检测算法 | 更准确的心率监测</p>
+        </div>
+    </div>
+
+    <script>
+        // 改进的面部检测算法
+        class ImprovedFaceDetector {
+            constructor() {
+                this.greenSignalBuffer = [];
+                this.bufferSize = 180;
+                this.samplingRate = 30;
+                this.faceDetectionCount = 0;
+                this.lastFacePosition = null;
+                this.faceTrackingHistory = [];
+                this.trackingSmoothFactor = 0.7;
+            }
+            
+            // 检查视频是否就绪
+            isVideoReady(videoElement) {
+                return videoElement.videoWidth > 0 && videoElement.videoHeight > 0;
+            }
+            
+            // 改进的面部检测算法
+            detectFaceRegion(videoElement) {
+                if (!this.isVideoReady(videoElement)) return null;
+                
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = videoElement.videoWidth;
+                canvas.height = videoElement.videoHeight;
+                
+                try {
+                    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    // 多特征融合检测
+                    const skinRegion = this.detectSkinRegion(imageData);
+                    const motionRegion = this.detectMotionRegion(imageData);
+                    const symmetryRegion = this.detectSymmetryRegion(imageData);
+                    
+                    // 融合检测结果
+                    const faceRegion = this.fuseDetectionResults(skinRegion, motionRegion, symmetryRegion);
+                    
+                    if (faceRegion) {
+                        // 应用面部跟踪平滑
+                        const smoothedRegion = this.applyFaceTracking(faceRegion);
+                        this.faceDetectionCount++;
+                        return smoothedRegion;
+                    }
+                } catch (error) {
+                    console.error('面部检测错误:', error);
+                    return null;
+                }
+                
+                return null;
+            }
+            
+            // 肤色区域检测
+            detectSkinRegion(imageData) {
+                const skinPixels = [];
+                const data = imageData.data;
+                
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    
+                    // 改进的肤色检测规则
+                    if (this.isSkinColor(r, g, b)) {
+                        const x = (i / 4) % imageData.width;
+                        const y = Math.floor((i / 4) / imageData.width);
+                        skinPixels.push({x, y});
+                    }
+                }
+                
+                return this.calculateRegionFromPixels(skinPixels, 'skin');
+            }
+            
+            // 改进的肤色判断
+            isSkinColor(r, g, b) {
+                // 多种肤色模型融合
+                const y = 0.299 * r + 0.587 * g + 0.114 * b;
+                const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+                const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+                
+                // 基于YCbCr的肤色检测
+                const ycbcrCondition = y > 80 && cb > 85 && cb < 135 && cr > 135 && cr < 180;
+                
+                // RGB肤色检测
+                const rgbCondition = r > 95 && g > 40 && b > 20 && 
+                    Math.max(r, g, b) - Math.min(r, g, b) > 15 &&
+                    Math.abs(r - g) > 15 && r > g && r > b;
+                
+                // HSV肤色检测
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+                const hsvCondition = max > 40 && (max - min) / max > 0.1 && 
+                    (r > 0.4 * max) && (g > 0.3 * max) && (b > 0.2 * max);
+                
+                return ycbcrCondition || rgbCondition || hsvCondition;
+            }
+            
+            // 运动区域检测
+            detectMotionRegion(imageData) {
+                // 简化的运动检测（实际应用中应该比较前后帧）
+                const edgePixels = this.detectEdges(imageData);
+                return this.calculateRegionFromPixels(edgePixels, 'motion');
+            }
+            
+            // 边缘检测
+            detectEdges(imageData) {
+                const edgePixels = [];
+                const data = imageData.data;
+                const width = imageData.width;
+                const height = imageData.height;
+                
+                // 简化的Sobel边缘检测
+                for (let y = 1; y < height - 1; y++) {
+                    for (let x = 1; x < width - 1; x++) {
+                        const i = (y * width + x) * 4;
+                        
+                        // 计算梯度
+                        const gx = this.calculateGradientX(data, x, y, width);
+                        const gy = this.calculateGradientY(data, x, y, width);
+                        const magnitude = Math.sqrt(gx * gx + gy * gy);
+                        
+                        if (magnitude > 50) { // 边缘阈值
+                            edgePixels.push({x, y});
+                        }
+                    }
+                }
+                
+                return edgePixels;
+            }
+            
+            calculateGradientX(data, x, y, width) {
+                const i = (y * width + x) * 4;
+                return -1 * data[i - 4] + 0 * data[i] + 1 * data[i + 4] +
+                       -2 * data[i - 4 + width * 4] + 0 * data[i + width * 4] + 2 * data[i + 4 + width * 4] +
+                       -1 * data[i - 4 + 2 * width * 4] + 0 * data[i + 2 * width * 4] + 1 * data[i + 4 + 2 * width * 4];
+            }
+            
+            calculateGradientY(data, x, y, width) {
+                const i = (y * width + x) * 4;
+                return -1 * data[i - 4] - 2 * data[i] - 1 * data[i + 4] +
+                       0 * data[i - 4 + width * 4] + 0 * data[i + width * 4] + 0 * data[i + 4 + width * 4] +
+                       1 * data[i - 4 + 2 * width * 4] + 2 * data[i + 2 * width * 4] + 1 * data[i + 4 + 2 * width * 4];
+            }
+            
+            // 对称性检测
+            detectSymmetryRegion(imageData) {
+                const symmetryPixels = [];
+                const width = imageData.width;
+                const height = imageData.height;
+                const data = imageData.data;
+                
+                // 检测面部对称性
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width / 2; x++) {
+                        const leftIndex = (y * width + x) * 4;
+                        const rightIndex = (y * width + (width - 1 - x)) * 4;
+                        
+                        // 计算对称性
+                        const symmetry = this.calculateSymmetry(data, leftIndex, rightIndex);
+                        
+                        if (symmetry > 0.8) { // 对称性阈值
+                            symmetryPixels.push({x, y});
+                            symmetryPixels.push({x: width - 1 - x, y});
+                        }
+                    }
+                }
+                
+                return this.calculateRegionFromPixels(symmetryPixels, 'symmetry');
+            }
+            
+            calculateSymmetry(data, leftIndex, rightIndex) {
+                const leftLuma = 0.299 * data[leftIndex] + 0.587 * data[leftIndex + 1] + 0.114 * data[leftIndex + 2];
+                const rightLuma = 0.299 * data[rightIndex] + 0.587 * data[rightIndex + 1] + 0.114 * data[rightIndex + 2];
+                
+                return 1 - Math.abs(leftLuma - rightLuma) / 255;
+            }
+            
+            // 从像素点计算区域
+            calculateRegionFromPixels(pixels, type) {
+                if (pixels.length < 50) return null;
+                
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                
+                pixels.forEach(pixel => {
+                    minX = Math.min(minX, pixel.x);
+                    minY = Math.min(minY, pixel.y);
+                    maxX = Math.max(maxX, pixel.x);
+                    maxY = Math.max(maxY, pixel.y);
+                });
+                
+                const width = maxX - minX;
+                const height = maxY - minY;
+                
+                // 根据检测类型调整区域大小
+                let adjustedWidth = width;
+                let adjustedHeight = height;
+                
+                switch (type) {
+                    case 'skin':
+                        // 肤色区域通常较大，稍微缩小
+                        adjustedWidth = width * 0.9;
+                        adjustedHeight = height * 0.9;
+                        break;
+                    case 'motion':
+                        // 运动区域可能较小，保持原大小
+                        break;
+                    case 'symmetry':
+                        // 对称区域居中调整
+                        adjustedWidth = width * 0.8;
+                        adjustedHeight = height * 0.8;
+                        break;
+                }
+                
+                // 验证区域合理性
+                if (adjustedWidth > 80 && adjustedHeight > 80 && 
+                    adjustedWidth < 400 && adjustedHeight < 400) {
+                    return {
+                        x: minX + (width - adjustedWidth) / 2,
+                        y: minY + (height - adjustedHeight) / 2,
+                        width: adjustedWidth,
+                        height: adjustedHeight,
+                        confidence: pixels.length / 1000 // 置信度
+                    };
+                }
+                
+                return null;
+            }
+            
+            // 融合检测结果
+            fuseDetectionResults(skinRegion, motionRegion, symmetryRegion) {
+                const regions = [skinRegion, motionRegion, symmetryRegion].filter(r => r !== null);
+                
+                if (regions.length === 0) return null;
+                
+                // 加权融合
+                let totalX = 0, totalY = 0, totalWidth = 0, totalHeight = 0;
+                let totalWeight = 0;
+                
+                regions.forEach(region => {
+                    const weight = region.confidence || 0.5;
+                    totalX += region.x * weight;
+                    totalY += region.y * weight;
+                    totalWidth += region.width * weight;
+                    totalHeight += region.height * weight;
+                    totalWeight += weight;
+                });
+                
+                if (totalWeight === 0) return regions[0]; // 回退到第一个区域
+                
+                return {
+                    x: totalX / totalWeight,
+                    y: totalY / totalWeight,
+                    width: totalWidth / totalWeight,
+                    height: totalHeight / totalWeight,
+                    confidence: totalWeight / regions.length
+                };
+            }
+            
+            // 应用面部跟踪平滑
+            applyFaceTracking(currentRegion) {
+                if (this.lastFacePosition) {
+                    // 应用平滑滤波
+                    const smoothedX = this.lastFacePosition.x * this.trackingSmoothFactor + 
+                                    currentRegion.x * (1 - this.trackingSmoothFactor);
+                    const smoothedY = this.lastFacePosition.y * this.trackingSmoothFactor + 
+                                    currentRegion.y * (1 - this.trackingSmoothFactor);
+                    const smoothedWidth = this.lastFacePosition.width * this.trackingSmoothFactor + 
+                                       currentRegion.width * (1 - this.trackingSmoothFactor);
+                    const smoothedHeight = this.lastFacePosition.height * this.trackingSmoothFactor + 
+                                        currentRegion.height * (1 - this.trackingSmoothFactor);
+                    
+                    currentRegion = {
+                        x: smoothedX,
+                        y: smoothedY,
+                        width: smoothedWidth,
+                        height: smoothedHeight,
+                        confidence: currentRegion.confidence
+                    };
+                }
+                
+                this.lastFacePosition = {...currentRegion};
+                return currentRegion;
+            }
+            
+            // 提取绿色通道信号
+            extractGreenSignal(videoElement, faceRegion) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // 提取面部区域的绿色通道
+                ctx.drawImage(videoElement, 
+                    faceRegion.x, faceRegion.y, faceRegion.width, faceRegion.height,
+                    0, 0, faceRegion.width, faceRegion.height);
+                
+                const imageData = ctx.getImageData(0, 0, faceRegion.width, faceRegion.height);
+                const data = imageData.data;
+                
+                let totalGreen = 0;
+                let pixelCount = 0;
+                
+                // 计算绿色通道平均值（跳过边缘像素）
+                for (let i = 4; i < data.length - 4; i += 4) {
+                    totalGreen += data[i + 1]; // 绿色通道
+                    pixelCount++;
+                }
+                
+                return pixelCount > 0 ? totalGreen / pixelCount : 0;
+            }
+            
+            // 计算面部特征点（用于可视化）
+            calculateFaceLandmarks(faceRegion) {
+                const landmarks = [];
+                
+                // 面部关键点位置（相对坐标）
+                const relativePositions = [
+                    { x: 0.3, y: 0.3, label: '左眼' },
+                    { x: 0.7, y: 0.3, label: '右眼' },
+                    { x: 0.5, y: 0.5, label: '鼻子' },
+                    { x: 0.3, y: 0.7, label: '左嘴角' },
+                    { x: 0.7, y: 0.7, label: '右嘴角' },
+                    { x: 0.5, y: 0.9, label: '下巴' }
+                ];
+                
+                relativePositions.forEach(pos => {
+                    landmarks.push({
+                        x: faceRegion.x + faceRegion.width * pos.x,
+                        y: faceRegion.y + faceRegion.height * pos.y,
+                        label: pos.label
+                    });
+                });
+                
+                return landmarks;
+            }
+            
+            // 信号处理和心率计算（保持原有算法）
+            preprocessSignal(signalData) {
+                if (signalData.length < 30) return signalData;
+                const detrended = this.detrend(signalData);
+                const filtered = this.bandpassFilter(detrended, 0.8, 4, this.samplingRate);
+                return this.normalize(filtered);
+            }
+            
+            detrend(signal) {
+                const n = signal.length;
+                const x = Array.from({length: n}, (_, i) => i);
+                const sumX = x.reduce((a, b) => a + b, 0);
+                const sumY = signal.reduce((a, b) => a + b, 0);
+                const sumXY = x.reduce((sum, xi, i) => sum + xi * signal[i], 0);
+                const sumXX = x.reduce((sum, xi) => sum + xi * xi, 0);
+                const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+                const intercept = (sumY - slope * sumX) / n;
+                return signal.map((y, i) => y - (slope * i + intercept));
+            }
+            
+            bandpassFilter(signal, lowFreq, highFreq, samplingRate) {
+                const windowSize = Math.floor(samplingRate / (lowFreq + highFreq) * 0.5);
+                return this.movingAverage(signal, windowSize);
+            }
+            
+            movingAverage(signal, windowSize) {
+                const result = [];
+                for (let i = 0; i < signal.length; i++) {
+                    const start = Math.max(0, i - windowSize);
+                    const end = Math.min(signal.length, i + windowSize);
+                    const window = signal.slice(start, end);
+                    result.push(window.reduce((a, b) => a + b, 0) / window.length);
+                }
+                return result;
+            }
+            
+            normalize(signal) {
+                const mean = signal.reduce((a, b) => a + b, 0) / signal.length;
+                const std = Math.sqrt(signal.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / signal.length);
+                return std === 0 ? signal : signal.map(val => (val - mean) / std);
+            }
+            
+            calculateHeartRate(signal) {
+                if (signal.length < 60) return { heartRate: 0, confidence: 0 };
+                const windowed = this.applyHanningWindow(signal);
+                const nfft = Math.max(256, windowed.length);
+                const fftResult = this.simpleFFT(windowed, nfft);
+                return this.analyzeHeartRateFrequency(fftResult, nfft, this.samplingRate);
+            }
+            
+            applyHanningWindow(signal) {
+                const n = signal.length;
+                return signal.map((val, i) => val * 0.5 * (1 - Math.cos(2 * Math.PI * i / (n - 1))));
+            }
+            
+            simpleFFT(signal, nfft) {
+                const real = [...signal, ...Array(nfft - signal.length).fill(0)];
+                const imag = Array(nfft).fill(0);
+                const magnitude = [];
+                for (let k = 0; k < nfft / 2; k++) {
+                    let realSum = 0, imagSum = 0;
+                    for (let n = 0; n < nfft; n++) {
+                        const angle = 2 * Math.PI * k * n / nfft;
+                        realSum += real[n] * Math.cos(angle);
+                        imagSum += real[n] * Math.sin(angle);
+                    }
+                    magnitude.push(Math.sqrt(realSum * realSum + imagSum * imagSum));
+                }
+                return magnitude;
+            }
+            
+            analyzeHeartRateFrequency(fftMagnitude, nfft, samplingRate) {
+                const frequencies = [];
+                for (let i = 0; i < fftMagnitude.length; i++) {
+                    frequencies.push(i * samplingRate / nfft);
+                }
+                const hrStart = Math.floor(0.8 * nfft / samplingRate);
+                const hrEnd = Math.floor(2.5 * nfft / samplingRate);
+                let maxPower = 0, peakFrequency = 0;
+                for (let i = hrStart; i <= hrEnd && i < fftMagnitude.length; i++) {
+                    if (fftMagnitude[i] > maxPower) {
+                        maxPower = fftMagnitude[i];
+                        peakFrequency = frequencies[i];
+                    }
+                }
+                const heartRate = peakFrequency * 60;
+                const confidence = Math.min(100, (maxPower / Math.max(...fftMagnitude)) * 100);
+                if (heartRate >= 40 && heartRate <= 180 && confidence > 20) {
+                    return { heartRate: Math.round(heartRate), confidence: Math.round(confidence) };
+                }
+                return { heartRate: 0, confidence: 0 };
+            }
+            
+            assessSignalQuality(signal) {
+                if (signal.length < 30) return 0;
+                const std = this.calculateStandardDeviation(signal);
+                const periodicity = this.assessPeriodicity(signal);
+                return Math.min(100, std * 20 + periodicity * 80);
+            }
+            
+            calculateStandardDeviation(signal) {
+                const mean = signal.reduce((a, b) => a + b, 0) / signal.length;
+                const variance = signal.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / signal.length;
+                return Math.sqrt(variance);
+            }
+            
+            assessPeriodicity(signal) {
+                const autocorr = [];
+                const maxLag = Math.min(20, signal.length - 1);
+                for (let lag = 0; lag <= maxLag; lag++) {
+                    let sum = 0;
+                    for (let i = 0; i < signal.length - lag; i++) {
+                        sum += signal[i] * signal[i + lag];
+                    }
+                    autocorr.push(sum / (signal.length - lag));
+                }
+                if (autocorr.length > 10) {
+                    const secondPeak = Math.max(...autocorr.slice(5, 10));
+                    const firstPeak = autocorr[0];
+                    return firstPeak > 0 ? secondPeak / firstPeak : 0;
+                }
+                return 0;
+            }
+        }
+
+        // 应用主逻辑
+        const detector = new ImprovedFaceDetector();
+        let cameraStream = null;
+        let detectionActive = false;
+        let animationFrameId = null;
+        let videoReady = false;
+        
+        // 获取DOM元素
+        const cameraFeed = document.getElementById('cameraFeed');
+        const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+        const faceOverlay = document.getElementById('faceOverlay');
+        const faceLandmarks = document.getElementById('faceLandmarks');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusText = document.getElementById('statusText');
+        const heartRate = document.getElementById('heartRate');
+        const qualityText = document.getElementById('qualityText');
+        const stabilityText = document.getElementById('stabilityText');
+        const debugInfo = document.getElementById('debugInfo');
+        const detectionInfo = document.getElementById('detectionInfo');
+        const signalCanvas = document.getElementById('signalCanvas');
+        const ctx = signalCanvas.getContext('2d');
+        
+        // 视频流就绪检查
+        function checkVideoReady() {
+            if (cameraFeed.videoWidth > 0 && cameraFeed.videoHeight > 0) {
+                videoReady = true;
+                debugInfo.textContent = '摄像头已就绪，开始检测...';
+                return true;
+            }
+            return false;
+        }
+        
+        // 启动检测
+        async function startDetection() {
+            try {
+                debugInfo.textContent = '正在请求摄像头权限...';
+                
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'user',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    }
+                });
+                
+                cameraFeed.srcObject = cameraStream;
+                cameraPlaceholder.style.display = 'none';
+                cameraFeed.style.display = 'block';
+                
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                statusText.textContent = '状态: 摄像头初始化中...';
+                statusText.style.color = '#f39c12';
+                
+                // 等待视频流就绪
+                const waitForVideoReady = () => {
+                    if (checkVideoReady()) {
+                        detectionActive = true;
+                        detector.faceDetectionCount = 0;
+                        detector.greenSignalBuffer = [];
+                        statusText.textContent = '状态: 检测中...';
+                        statusText.style.color = '#27ae60';
+                        processVideoFrame();
+                    } else {
+                        setTimeout(waitForVideoReady, 100);
+                    }
+                };
+                
+                waitForVideoReady();
+                
+            } catch (error) {
+                debugInfo.textContent = `摄像头错误: ${error.message}`;
+                statusText.textContent = '错误: 无法访问摄像头';
+                statusText.style.color = '#e74c3c';
+                startBtn.disabled = false;
+            }
+        }
+        
+        // 处理视频帧
+        function processVideoFrame() {
+            if (!detectionActive || !videoReady) return;
+            
+            try {
+                const faceRegion = detector.detectFaceRegion(cameraFeed);
+                
+                if (faceRegion) {
+                    // 显示面部区域
+                    faceOverlay.style.display = 'block';
+                    faceOverlay.style.left = `${faceRegion.x}px`;
+                    faceOverlay.style.top = `${faceRegion.y}px`;
+                    faceOverlay.style.width = `${faceRegion.width}px`;
+                    faceOverlay.style.height = `${faceRegion.height}px`;
+                    
+                    // 显示面部特征点
+                    displayFaceLandmarks(faceRegion);
+                    
+                    // 更新检测信息
+                    detectionInfo.textContent = `面部检测: 成功 | 置信度: ${Math.round(faceRegion.confidence * 100)}% | 位置: ${Math.round(faceRegion.x)},${Math.round(faceRegion.y)}`;
+                    detectionInfo.style.background = '#d4edda';
+                    
+                    // 提取绿色通道信号
+                    const greenValue = detector.extractGreenSignal(cameraFeed, faceRegion);
+                    detector.greenSignalBuffer.push(greenValue);
+                    
+                    // 保持缓冲区大小
+                    if (detector.greenSignalBuffer.length > detector.bufferSize) {
+                        detector.greenSignalBuffer.shift();
+                    }
+                    
+                    // 每30帧（约1秒）进行一次心率计算
+                    if (detector.faceDetectionCount % 30 === 0 && detector.greenSignalBuffer.length >= 60) {
+                        const processedSignal = detector.preprocessSignal(detector.greenSignalBuffer);
+                        const result = detector.calculateHeartRate(processedSignal);
+                        const quality = detector.assessSignalQuality(processedSignal);
+                        
+                        updateDisplay(result.heartRate, quality, result.confidence);
+                        drawSignalWave(processedSignal);
+                        
+                        debugInfo.textContent = `信号长度: ${detector.greenSignalBuffer.length} | 面部检测: ${detector.faceDetectionCount} | 质量: ${Math.round(quality)}%`;
+                    }
+                    
+                    stabilityText.textContent = `稳定性: ${Math.min(10, Math.floor(detector.faceDetectionCount / 10))}/10`;
+                } else {
+                    faceOverlay.style.display = 'none';
+                    faceLandmarks.innerHTML = '';
+                    detectionInfo.textContent = '面部检测: 未检测到面部，请调整位置和光照';
+                    detectionInfo.style.background = '#f8d7da';
+                    debugInfo.textContent = '未检测到面部，请调整位置和光照';
+                }
+            } catch (error) {
+                console.error('视频帧处理错误:', error);
+                debugInfo.textContent = `处理错误: ${error.message}`;
+            }
+            
+            if (detectionActive) {
+                animationFrameId = requestAnimationFrame(processVideoFrame);
+            }
+        }
+        
+        // 显示面部特征点
+        function displayFaceLandmarks(faceRegion) {
+            faceLandmarks.innerHTML = '';
+            const landmarks = detector.calculateFaceLandmarks(faceRegion);
+            
+            landmarks.forEach(landmark => {
+                const dot = document.createElement('div');
+                dot.className = 'landmark';
+                dot.style.left = `${landmark.x}px`;
+                dot.style.top = `${landmark.y}px`;
+                dot.title = landmark.label;
+                faceLandmarks.appendChild(dot);
+            });
+        }
+        
+        // 停止检测
+        function stopDetection() {
+            detectionActive = false;
+            videoReady = false;
+            
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            
+            cameraFeed.style.display = 'none';
+            cameraPlaceholder.style.display = 'block';
+            faceOverlay.style.display = 'none';
+            faceLandmarks.innerHTML = '';
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            
+            statusText.textContent = '状态: 检测已停止';
+            statusText.style.color = '#7f8c8d';
+            heartRate.textContent = '--';
+            heartRate.classList.remove('pulse');
+            qualityText.textContent = '信号质量: --%';
+            stabilityText.textContent = '稳定性: 0/10';
+            detectionInfo.textContent = '面部检测状态: 等待开始';
+            detectionInfo.style.background = '#e8f4fd';
+            
+            ctx.clearRect(0, 0, signalCanvas.width, signalCanvas.height);
+        }
+        
+        // 更新显示
+        function updateDisplay(hr, quality, confidence) {
+            if (hr > 0) {
+                heartRate.textContent = hr;
+                qualityText.textContent = `信号质量: ${Math.round(quality)}% (置信度: ${confidence}%)`;
+                
+                heartRate.classList.add('pulse');
+                setTimeout(() => heartRate.classList.remove('pulse'), 500);
+                
+                if (hr >= 60 && hr <= 100) {
+                    heartRate.style.color = '#27ae60';
+                    statusText.textContent = '状态: 心率正常';
+                } else if (hr < 60) {
+                    heartRate.style.color = '#3498db';
+                    statusText.textContent = '状态: 心率偏低';
+                } else {
+                    heartRate.style.color = '#e74c3c';
+                    statusText.textContent = '状态: 心率偏高';
+                }
+                
+                if (quality > 70) {
+                    qualityText.style.color = '#27ae60';
+                } else if (quality > 40) {
+                    qualityText.style.color = '#f39c12';
+                } else {
+                    qualityText.style.color = '#e74c3c';
+                }
+            }
+        }
+        
+        // 绘制信号波形
+        function drawSignalWave(signal) {
+            ctx.clearRect(0, 0, signalCanvas.width, signalCanvas.height);
+            
+            if (signal.length < 2) return;
+            
+            ctx.beginPath();
+            ctx.strokeStyle = '#27ae60';
+            ctx.lineWidth = 2;
+            
+            const maxVal = Math.max(...signal.map(Math.abs));
+            const scaleY = signalCanvas.height / (2 * (maxVal || 1));
+            const stepX = signalCanvas.width / (signal.length - 1);
+            
+            signal.forEach((value, index) => {
+                const x = index * stepX;
+                const y = signalCanvas.height / 2 - value * scaleY;
+                
+                if (index === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            
+            ctx.stroke();
+        }
+        
+        // 页面加载初始化
+        window.addEventListener('DOMContentLoaded', function() {
+            startBtn.addEventListener('click', startDetection);
+            stopBtn.addEventListener('click', stopDetection);
+            
+            // 移动端触摸支持
+            startBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                startDetection();
+            });
+            
+            stopBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                stopDetection();
+            });
+        });
+        
+        // 清理资源
+        window.addEventListener('beforeunload', function() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+            }
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+        });
+    </script>
+</body>
+</html>

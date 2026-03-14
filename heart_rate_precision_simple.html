@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心率精度优化简化版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            color: #ffffff;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header p {
+            color: #bdc3c7;
+            font-size: 16px;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .camera-section {
+            position: relative;
+        }
+        
+        .camera-container {
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+            background: #2c3e50;
+            height: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .camera-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .camera-placeholder {
+            color: #95a5a6;
+            font-size: 18px;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .fixed-detection-box {
+            position: absolute;
+            border: none;
+            border-radius: 15px;
+            background: rgba(231, 76, 60, 0.05);
+            pointer-events: none;
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.3);
+            width: 180px;
+            height: 220px;
+        }
+        
+        .box-guide {
+            position: absolute;
+            color: #e74c3c;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            width: 100%;
+            bottom: -30px;
+            left: 0;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 5px;
+            border-radius: 5px;
+        }
+        
+        .status-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .heart-rate-display {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .heart-rate-value {
+            font-size: 64px;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #e74c3c;
+            text-shadow: 0 0 20px rgba(231, 76, 60, 0.5);
+        }
+        
+        .heart-rate-status {
+            font-size: 18px;
+            color: #bdc3c7;
+            margin-bottom: 10px;
+        }
+        
+        .confidence-display {
+            font-size: 14px;
+            color: #95a5a6;
+        }
+        
+        .quality-indicators {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .indicator {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+        
+        .indicator:last-child {
+            margin-bottom: 0;
+        }
+        
+        .indicator-label {
+            font-size: 14px;
+            color: #bdc3c7;
+        }
+        
+        .indicator-value {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .signal-graph-section {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .signal-graph-title {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #bdc3c7;
+        }
+        
+        .signal-graph {
+            height: 120px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .controls-section {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+        }
+        
+        .btn-start {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+        }
+        
+        .btn-stop {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+        
+        .btn:disabled {
+            background: linear-gradient(135deg, #7f8c8d, #95a5a6);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .info-section {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .info-title {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #bdc3c7;
+        }
+        
+        .info-content {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #95a5a6;
+        }
+        
+        .info-list {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .info-list li {
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+        
+        .info-list li:before {
+            content: "•";
+            color: #3498db;
+            position: absolute;
+            left: 0;
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .quality-high { color: #27ae60; }
+        .quality-medium { color: #f39c12; }
+        .quality-low { color: #e74c3c; }
+        
+        .detection-status {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 14px;
+            color: #155724;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+            
+            .heart-rate-value {
+                font-size: 48px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>❤️ 心率精度优化简化版</h1>
+            <p>使用固定检测区域 - 确保测量可靠性</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="camera-section">
+                <div class="camera-container">
+                    <video class="camera-feed" id="cameraFeed" autoplay playsinline></video>
+                    <div class="fixed-detection-box" id="fixedBox">
+                        <div class="box-guide">请将面部置于此框内</div>
+                    </div>
+                    <div class="camera-placeholder" id="cameraPlaceholder">
+                        <div>📷 点击"开始检测"启用摄像头</div>
+                        <div style="font-size: 14px; margin-top: 10px; color: #7f8c8d;">
+                            简化版 - 无需面部识别，直接使用固定区域
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="detection-status" id="detectionStatus">
+                    ✅ 简化版检测：请将面部对准中央透明区域进行心率检测
+                </div>
+            </div>
+            
+            <div class="status-section">
+                <div class="heart-rate-display">
+                    <div class="heart-rate-status" id="heartRateStatus">等待开始检测</div>
+                    <div class="heart-rate-value" id="heartRateValue">--</div>
+                    <div class="confidence-display" id="confidenceDisplay">置信度: --%</div>
+                </div>
+                
+                <div class="quality-indicators">
+                    <div class="indicator">
+                        <span class="indicator-label">检测状态</span>
+                        <span class="indicator-value" id="detectionState">等待中</span>
+                    </div>
+                    <div class="indicator">
+                        <span class="indicator-label">信号质量</span>
+                        <span class="indicator-value" id="signalQuality">--%</span>
+                    </div>
+                    <div class="indicator">
+                        <span class="indicator-label">检测帧数</span>
+                        <span class="indicator-value" id="frameCount">0</span>
+                    </div>
+                    <div class="indicator">
+                        <span class="indicator-label">信号长度</span>
+                        <span class="indicator-value" id="signalLength">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="signal-graph-section">
+            <div class="signal-graph-title">实时信号波形</div>
+            <div class="signal-graph">
+                <canvas id="signalCanvas" width="800" height="120"></canvas>
+            </div>
+        </div>
+        
+        <div class="controls-section">
+            <button class="btn btn-start" id="startBtn">🔴 开始检测</button>
+            <button class="btn btn-stop" id="stopBtn" disabled>停止检测</button>
+        </div>
+        
+        <div class="info-section">
+            <div class="info-title">📊 简化版特性说明</div>
+            <div class="info-content">
+                <ul class="info-list">
+                    <li><strong>无框线检测区域</strong> - 中央透明区域，界面更简洁</li>
+                    <li><strong>立即开始检测</strong> - 摄像头启动后立即开始测量</li>
+                    <li><strong>高可靠性</strong> - 避免面部检测失败问题</li>
+                    <li><strong>精度优化算法</strong> - 保留Python版本的核心算法</li>
+                    <li><strong>实时信号处理</strong> - 高级预处理和FFT分析</li>
+                    <li><strong>医学验证</strong> - 基于医学参考范围的可靠性检查</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 精度优化配置 ====================
+        const BUFFER_LENGTH = 240;      // 8秒数据（30fps）
+        const FS = 30.0;                // 采样率
+        
+        // 医学参考范围
+        const MEDICAL_HR_MIN = 60;
+        const MEDICAL_HR_MAX = 100;
+        
+        // 精度优化参数
+        const MIN_SIGNAL_LENGTH = 120;      // 最小信号长度
+        const QUALITY_THRESHOLD_HIGH = 60;  // 高质量阈值
+        const QUALITY_THRESHOLD_MEDIUM = 40;// 中等质量阈值
+
+        // ==================== 简化版心率检测器 ====================
+        class SimplePrecisionHeartRateDetector {
+            constructor() {
+                this.greenSignalBuffer = [];
+                this.bufferSize = BUFFER_LENGTH;
+                this.samplingRate = FS;
+                this.frameCount = 0;
+                this.lastHrValues = [];
+                
+                // 固定检测区域参数
+                this.fixedRegion = {
+                    width: 180,
+                    height: 220
+                };
+            }
+            
+            // 检查视频是否就绪
+            isVideoReady(videoElement) {
+                return videoElement.videoWidth > 0 && videoElement.videoHeight > 0;
+            }
+            
+            // 获取固定检测区域（画面中央）
+            getFixedRegion(videoElement) {
+                if (!this.isVideoReady(videoElement)) return null;
+                
+                const videoWidth = videoElement.videoWidth;
+                const videoHeight = videoElement.videoHeight;
+                const boxWidth = this.fixedRegion.width;
+                const boxHeight = this.fixedRegion.height;
+                
+                // 计算中央位置
+                const centerX = (videoWidth - boxWidth) / 2;
+                const centerY = (videoHeight - boxHeight) / 2;
+                
+                return {
+                    x: centerX,
+                    y: centerY,
+                    width: boxWidth,
+                    height: boxHeight
+                };
+            }
+            
+            // 提取绿色通道信号
+            extractGreenSignal(videoElement, region) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                ctx.drawImage(videoElement, 
+                    region.x, region.y, region.width, region.height,
+                    0, 0, region.width, region.height);
+                
+                const imageData = ctx.getImageData(0, 0, region.width, region.height);
+                const data = imageData.data;
+                
+                let totalGreen = 0;
+                let pixelCount = 0;
+                
+                for (let i = 0; i < data.length; i += 4) {
+                    totalGreen += data[i + 1];
+                    pixelCount++;
+                }
+                
+                return pixelCount > 0 ? totalGreen / pixelCount : 0;
+            }
+            
+            // ==================== 精度优化信号处理 ====================
+            
+            // 高级信号预处理（基于Python版本）
+            advancedSignalPreprocessing(signalData) {
+                if (signalData.length < MIN_SIGNAL_LENGTH) {
+                    return signalData;
+                }
+                
+                try {
+                    // 1. 精确去趋势（去除基线漂移）
+                    const detrendSignal = this.preciseDetrend(signalData);
+                    
+                    // 2. 简单的带通滤波（0.8-4Hz）
+                    const filteredSignal = this.simpleBandpassFilter(detrendSignal, 0.8, 4);
+                    
+                    // 3. 信号平滑
+                    const smoothedSignal = this.movingAverage(filteredSignal, 5);
+                    
+                    // 4. 归一化处理
+                    const normalizedSignal = this.normalizeSignal(smoothedSignal);
+                    
+                    return normalizedSignal;
+                    
+                } catch (error) {
+                    console.error('信号预处理异常:', error);
+                    return signalData;
+                }
+            }
+            
+            // 精确去趋势
+            preciseDetrend(signal) {
+                const n = signal.length;
+                const x = Array.from({length: n}, (_, i) => i);
+                
+                // 线性回归去趋势
+                const sumX = x.reduce((a, b) => a + b, 0);
+                const sumY = signal.reduce((a, b) => a + b, 0);
+                const sumXY = x.reduce((sum, xi, i) => sum + xi * signal[i], 0);
+                const sumXX = x.reduce((sum, xi) => sum + xi * xi, 0);
+                
+                const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+                const intercept = (sumY - slope * sumX) / n;
+                
+                return signal.map((y, i) => y - (slope * i + intercept));
+            }
+            
+            // 简单带通滤波
+            simpleBandpassFilter(signal, lowFreq, highFreq) {
+                // 使用移动平均实现简单的带通滤波
+                const lowPassWindow = Math.floor(this.samplingRate / (2 * highFreq));
+                const highPassWindow = Math.floor(this.samplingRate / lowFreq);
+                
+                const lowPass = this.movingAverage(signal, lowPassWindow);
+                const highPass = signal.map((val, i) => val - lowPass[i]);
+                
+                return this.movingAverage(highPass, 3);
+            }
+            
+            // 移动平均
+            movingAverage(signal, windowSize) {
+                if (windowSize <= 1) return signal;
+                
+                const result = [];
+                for (let i = 0; i < signal.length; i++) {
+                    const start = Math.max(0, i - Math.floor(windowSize / 2));
+                    const end = Math.min(signal.length, i + Math.ceil(windowSize / 2));
+                    const window = signal.slice(start, end);
+                    result.push(window.reduce((a, b) => a + b, 0) / window.length);
+                }
+                return result;
+            }
+            
+            // 信号归一化
+            normalizeSignal(signal) {
+                const mean = signal.reduce((a, b) => a + b, 0) / signal.length;
+                const std = Math.sqrt(signal.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / signal.length);
+                
+                return std === 0 ? signal : signal.map(val => (val - mean) / std);
+            }
+            
+            // ==================== 精度优化心率计算 ====================
+            
+            precisionHeartRateCalculation(signalData, fs) {
+                if (signalData.length < MIN_SIGNAL_LENGTH) {
+                    return { heartRate: 0, confidence: 0 };
+                }
+                
+                try {
+                    // 1. 信号质量评估
+                    const signalStd = this.calculateStandardDeviation(signalData);
+                    if (signalStd < 0.15) {
+                        return { heartRate: 0, confidence: 0 };
+                    }
+                    
+                    // 2. 应用汉宁窗
+                    const windowedSignal = this.applyHanningWindow(signalData);
+                    
+                    // 3. 零填充FFT
+                    const nfft = Math.max(1024, signalData.length);
+                    const fftResult = this.simpleFFT(windowedSignal, nfft);
+                    
+                    // 4. 心率频率分析
+                    return this.analyzeHeartRateFrequency(fftResult, nfft, fs);
+                    
+                } catch (error) {
+                    console.error('心率计算异常:', error);
+                    return { heartRate: 0, confidence: 0 };
+                }
+            }
+            
+            // 应用汉宁窗
+            applyHanningWindow(signal) {
+                const n = signal.length;
+                return signal.map((val, i) => {
+                    return val * 0.5 * (1 - Math.cos(2 * Math.PI * i / (n - 1)));
+                });
+            }
+            
+            // 简单FFT实现
+            simpleFFT(signal, nfft) {
+                const real = [...signal, ...Array(nfft - signal.length).fill(0)];
+                const imag = Array(nfft).fill(0);
+                const magnitude = [];
+                
+                for (let k = 0; k < nfft / 2; k++) {
+                    let realSum = 0, imagSum = 0;
+                    for (let n = 0; n < nfft; n++) {
+                        const angle = 2 * Math.PI * k * n / nfft;
+                        realSum += real[n] * Math.cos(angle);
+                        imagSum += real[n] * Math.sin(angle);
+                    }
+                    magnitude.push(Math.sqrt(realSum * realSum + imagSum * imagSum));
+                }
+                
+                return magnitude;
+            }
+            
+            // 心率频率分析
+            analyzeHeartRateFrequency(fftMagnitude, nfft, samplingRate) {
+                const frequencies = [];
+                for (let i = 0; i < fftMagnitude.length; i++) {
+                    frequencies.push(i * samplingRate / nfft);
+                }
+                
+                // 心率频率范围（0.8-2.5Hz，对应48-150bpm）
+                const hrStart = Math.floor(0.8 * nfft / samplingRate);
+                const hrEnd = Math.floor(2.5 * nfft / samplingRate);
+                
+                let maxPower = 0, peakFrequency = 0;
+                
+                for (let i = hrStart; i <= hrEnd && i < fftMagnitude.length; i++) {
+                    if (fftMagnitude[i] > maxPower) {
+                        maxPower = fftMagnitude[i];
+                        peakFrequency = frequencies[i];
+                    }
+                }
+                
+                const heartRate = peakFrequency * 60;
+                const confidence = Math.min(100, (maxPower / Math.max(...fftMagnitude)) * 100);
+                
+                if (heartRate >= 40 && heartRate <= 180 && confidence > 20) {
+                    return { 
+                        heartRate: Math.round(heartRate), 
+                        confidence: Math.round(confidence) 
+                    };
+                }
+                
+                return { heartRate: 0, confidence: 0 };
+            }
+            
+            // 信号质量评估
+            calculateSignalQuality(signal) {
+                if (signal.length < 30) return 0;
+                
+                try {
+                    const std = this.calculateStandardDeviation(signal);
+                    
+                    // 信噪比估计
+                    const noiseStd = this.calculateStandardDeviation(
+                        signal.map((val, i, arr) => {
+                            const start = Math.max(0, i - 3);
+                            const end = Math.min(arr.length, i + 4);
+                            const window = arr.slice(start, end);
+                            return val - window.reduce((a, b) => a + b, 0) / window.length;
+                        })
+                    );
+                    
+                    const snr = noiseStd > 0 ? std / noiseStd : 0;
+                    
+                    // 周期性评估
+                    const periodicity = this.assessPeriodicity(signal);
+                    
+                    // 综合信号质量评分
+                    const quality = Math.min(100, std * 20 + Math.min(40, snr * 10) + Math.min(40, periodicity * 100));
+                    
+                    return quality;
+                } catch {
+                    return 0;
+                }
+            }
+            
+            // 计算标准差
+            calculateStandardDeviation(signal) {
+                const mean = signal.reduce((a, b) => a + b, 0) / signal.length;
+                const variance = signal.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / signal.length;
+                return Math.sqrt(variance);
+            }
+            
+            // 周期性评估
+            assessPeriodicity(signal) {
+                const autocorr = [];
+                const maxLag = Math.min(20, signal.length - 1);
+                
+                for (let lag = 0; lag <= maxLag; lag++) {
+                    let sum = 0;
+                    for (let i = 0; i < signal.length - lag; i++) {
+                        sum += signal[i] * signal[i + lag];
+                    }
+                    autocorr.push(sum / (signal.length - lag));
+                }
+                
+                if (autocorr.length > 10) {
+                    const secondPeak = Math.max(...autocorr.slice(5, 10));
+                    const firstPeak = autocorr[0];
+                    return firstPeak > 0 ? secondPeak / firstPeak : 0;
+                }
+                
+                return 0;
+            }
+            
+            // 数值平滑
+            smoothValue(currentValue, history, confidence) {
+                if (currentValue === 0) return 0;
+                
+                history.push(currentValue);
+                
+                if (history.length < 5) {
+                    return currentValue;
+                }
+                
+                // 简单的加权平滑
+                const recentValues = history.slice(-5);
+                const weights = [0.1, 0.2, 0.4, 0.2, 0.1];
+                
+                const smoothed = recentValues.reduce((sum, val, i) => {
+                    return sum + val * weights[i];
+                }, 0);
+                
+                return smoothed;
+            }
+            
+            // 心率验证
+            validateHeartRate(hrValue, confidence) {
+                if (hrValue < 40 || hrValue > 180) {
+                    return { value: 0, status: "超出人体生理范围", reliable: false };
+                }
+                
+                if (confidence < QUALITY_THRESHOLD_MEDIUM) {
+                    return { value: 0, status: "置信度不足", reliable: false };
+                }
+                
+                // 医学范围验证
+                if (MEDICAL_HR_MIN <= hrValue && hrValue <= MEDICAL_HR_MAX) {
+                    return { 
+                        value: hrValue, 
+                        status: "正常范围", 
+                        reliable: confidence >= QUALITY_THRESHOLD_HIGH 
+                    };
+                } else if (50 <= hrValue && hrValue < MEDICAL_HR_MIN) {
+                    return { 
+                        value: hrValue, 
+                        status: "偏低（运动员或体质较好）", 
+                        reliable: confidence >= QUALITY_THRESHOLD_MEDIUM 
+                    };
+                } else if (MEDICAL_HR_MAX < hrValue && hrValue <= 110) {
+                    return { 
+                        value: hrValue, 
+                        status: "偏高（需关注）", 
+                        reliable: confidence >= QUALITY_THRESHOLD_MEDIUM 
+                    };
+                } else {
+                    return { value: 0, status: "异常值", reliable: false };
+                }
+            }
+        }
+
+        // ==================== 应用初始化 ====================
+        
+        const detector = new SimplePrecisionHeartRateDetector();
+        let cameraStream = null;
+        let detectionActive = false;
+        let animationFrameId = null;
+        let videoReady = false;
+        
+        // 获取DOM元素
+        const cameraFeed = document.getElementById('cameraFeed');
+        const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+        const fixedBox = document.getElementById('fixedBox');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const heartRateValue = document.getElementById('heartRateValue');
+        const heartRateStatus = document.getElementById('heartRateStatus');
+        const confidenceDisplay = document.getElementById('confidenceDisplay');
+        const signalQuality = document.getElementById('signalQuality');
+        const frameCount = document.getElementById('frameCount');
+        const signalLength = document.getElementById('signalLength');
+        const detectionState = document.getElementById('detectionState');
+        const detectionStatus = document.getElementById('detectionStatus');
+        const signalCanvas = document.getElementById('signalCanvas');
+        const ctx = signalCanvas.getContext('2d');
+        
+        // 视频流就绪检查
+        function checkVideoReady() {
+            if (cameraFeed.videoWidth > 0 && cameraFeed.videoHeight > 0) {
+                videoReady = true;
+                
+                // 更新固定框位置到画面正中央
+                updateFixedBoxPosition();
+                
+                return true;
+            }
+            return false;
+        }
+        
+        // 更新固定框位置到画面正中央
+        function updateFixedBoxPosition() {
+            if (!videoReady) return;
+            
+            const videoWidth = cameraFeed.videoWidth;
+            const videoHeight = cameraFeed.videoHeight;
+            const boxWidth = 180;
+            const boxHeight = 220;
+            
+            // 计算中央位置
+            const centerX = (videoWidth - boxWidth) / 2;
+            const centerY = (videoHeight - boxHeight) / 2;
+            
+            // 设置检测框位置
+            fixedBox.style.left = `${centerX}px`;
+            fixedBox.style.top = `${centerY}px`;
+            fixedBox.style.width = `${boxWidth}px`;
+            fixedBox.style.height = `${boxHeight}px`;
+            
+            console.log(`检测框位置: ${centerX}, ${centerY} | 画面尺寸: ${videoWidth}x${videoHeight}`);
+        }
+        
+        // 启动检测
+        async function startDetection() {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'user',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    }
+                });
+                
+                cameraFeed.srcObject = cameraStream;
+                cameraPlaceholder.style.display = 'none';
+                cameraFeed.style.display = 'block';
+                fixedBox.style.display = 'block';
+                
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                heartRateStatus.textContent = '状态: 摄像头初始化中...';
+                detectionState.textContent = '初始化中';
+                
+                // 等待视频流就绪
+                const waitForVideoReady = () => {
+                    if (checkVideoReady()) {
+                        detectionActive = true;
+                        detector.greenSignalBuffer = [];
+                        detector.frameCount = 0;
+                        heartRateStatus.textContent = '状态: 检测中...';
+                        detectionState.textContent = '检测中';
+                        detectionStatus.textContent = '✅ 检测进行中 - 请将面部对准中央透明区域';
+                        processVideoFrame();
+                    } else {
+                        setTimeout(waitForVideoReady, 100);
+                    }
+                };
+                
+                waitForVideoReady();
+                
+            } catch (error) {
+                heartRateStatus.textContent = '错误: 无法访问摄像头';
+                detectionState.textContent = '摄像头错误';
+                startBtn.disabled = false;
+            }
+        }
+        
+        // 处理视频帧
+        function processVideoFrame() {
+            if (!detectionActive || !videoReady) return;
+            
+            try {
+                const region = detector.getFixedRegion(cameraFeed);
+                
+                if (region) {
+                    // 提取绿色通道信号
+                    const greenValue = detector.extractGreenSignal(cameraFeed, region);
+                    detector.greenSignalBuffer.push(greenValue);
+                    
+                    // 保持缓冲区大小
+                    if (detector.greenSignalBuffer.length > detector.bufferSize) {
+                        detector.greenSignalBuffer.shift();
+                    }
+                    
+                    detector.frameCount++;
+                    
+                    // 每30帧（约1秒）进行一次心率计算
+                    if (detector.frameCount % 30 === 0 && detector.greenSignalBuffer.length >= MIN_SIGNAL_LENGTH) {
+                        const processedSignal = detector.advancedSignalPreprocessing(detector.greenSignalBuffer);
+                        const result = detector.precisionHeartRateCalculation(processedSignal, FS);
+                        const quality = detector.calculateSignalQuality(processedSignal);
+                        
+                        if (result.heartRate > 0) {
+                            const validation = detector.validateHeartRate(result.heartRate, result.confidence);
+                            
+                            if (validation.value > 0) {
+                                const smoothedHr = detector.smoothValue(validation.value, detector.lastHrValues, result.confidence);
+                                
+                                updateDisplay(smoothedHr, quality, result.confidence, validation.status, validation.reliable);
+                                drawSignalWave(processedSignal);
+                                
+                                detectionStatus.textContent = `✅ 检测成功 - 心率: ${Math.round(smoothedHr)}bpm [质量: ${Math.round(quality)}%]`;
+                                
+                                // 控制台输出（可选）
+                                if (detector.frameCount % 60 === 0) {
+                                    console.log(`简化版心率: ${smoothedHr}bpm[置信度:${result.confidence}%], 信号质量: ${quality}%`);
+                                }
+                            } else {
+                                detectionStatus.textContent = '⚠️ 信号质量不足，请调整位置和光照';
+                            }
+                        } else {
+                            detectionStatus.textContent = '⏳ 正在收集信号数据...';
+                        }
+                    }
+                    
+                    // 更新状态显示
+                    updateStatusDisplay();
+                    
+                }
+                
+            } catch (error) {
+                console.error('视频帧处理错误:', error);
+                detectionStatus.textContent = '❌ 处理错误，请重试';
+            }
+            
+            if (detectionActive) {
+                animationFrameId = requestAnimationFrame(processVideoFrame);
+            }
+        }
+        
+        // 更新显示
+        function updateDisplay(hr, quality, confidence, status, reliable) {
+            heartRateValue.textContent = Math.round(hr);
+            heartRateStatus.textContent = `状态: ${status}`;
+            confidenceDisplay.textContent = `置信度: ${Math.round(confidence)}%`;
+            signalQuality.textContent = `${Math.round(quality)}%`;
+            
+            // 设置颜色
+            heartRateValue.style.color = reliable ? '#27ae60' : '#f39c12';
+            signalQuality.className = `indicator-value ${quality > 60 ? 'quality-high' : quality > 40 ? 'quality-medium' : 'quality-low'}`;
+            
+            // 添加脉冲动画
+            heartRateValue.classList.add('pulse');
+            setTimeout(() => heartRateValue.classList.remove('pulse'), 500);
+        }
+        
+        // 更新状态显示
+        function updateStatusDisplay() {
+            frameCount.textContent = detector.frameCount;
+            signalLength.textContent = detector.greenSignalBuffer.length;
+            
+            if (detector.greenSignalBuffer.length >= MIN_SIGNAL_LENGTH) {
+                detectionState.textContent = '分析中';
+            } else {
+                detectionState.textContent = '收集数据';
+            }
+        }
+        
+        // 绘制信号波形
+        function drawSignalWave(signal) {
+            ctx.clearRect(0, 0, signalCanvas.width, signalCanvas.height);
+            
+            if (signal.length < 2) return;
+            
+            ctx.beginPath();
+            ctx.strokeStyle = '#27ae60';
+            ctx.lineWidth = 2;
+            
+            const maxVal = Math.max(...signal.map(Math.abs));
+            const scaleY = signalCanvas.height / (2 * (maxVal || 1));
+            const stepX = signalCanvas.width / (signal.length - 1);
+            
+            signal.forEach((value, index) => {
+                const x = index * stepX;
+                const y = signalCanvas.height / 2 - value * scaleY;
+                
+                if (index === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            
+            ctx.stroke();
+        }
+        
+        // 停止检测
+        function stopDetection() {
+            detectionActive = false;
+            videoReady = false;
+            
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            
+            cameraFeed.style.display = 'none';
+            fixedBox.style.display = 'none';
+            cameraPlaceholder.style.display = 'block';
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            
+            // 重置显示
+            heartRateValue.textContent = '--';
+            heartRateStatus.textContent = '等待开始检测';
+            confidenceDisplay.textContent = '置信度: --%';
+            signalQuality.textContent = '--%';
+            frameCount.textContent = '0';
+            signalLength.textContent = '0';
+            detectionState.textContent = '等待中';
+            detectionStatus.textContent = '✅ 简化版检测：请将面部对准中央透明区域进行心率检测';
+            
+            ctx.clearRect(0, 0, signalCanvas.width, signalCanvas.height);
+        }
+        
+        // 页面加载初始化
+        window.addEventListener('DOMContentLoaded', function() {
+            startBtn.addEventListener('click', startDetection);
+            stopBtn.addEventListener('click', stopDetection);
+            
+            // 移动端触摸支持
+            startBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                startDetection();
+            });
+            
+            stopBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                stopDetection();
+            });
+        });
+        
+        // 清理资源
+        window.addEventListener('beforeunload', function() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+            }
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+        });
+    </script>
+</body>
+</html>

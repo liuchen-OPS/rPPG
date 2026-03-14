@@ -1,0 +1,29 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Buildozer
+.buildozer/
+bin/
+*.apk
+
+# IDE
+.qoder/
+.vscode/
+.idea/
+
+# Temp files
+nul
+*.tmp
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup files
+*_original.py

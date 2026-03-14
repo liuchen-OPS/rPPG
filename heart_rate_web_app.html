@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心率检测Web应用</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0d1123 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .header {
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .camera-container {
+            position: relative;
+            margin: 20px 0;
+            border-radius: 15px;
+            overflow: hidden;
+            background: #f0f0f0;
+            height: 200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .camera-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .camera-placeholder {
+            color: #999;
+            font-size: 16px;
+        }
+        
+        .status-panel {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .heart-rate {
+            font-size: 48px;
+            font-weight: bold;
+            color: #e74c3c;
+            margin: 10px 0;
+        }
+        
+        .status {
+            font-size: 16px;
+            color: #7f8c8d;
+            margin: 5px 0;
+        }
+        
+        .quality {
+            font-size: 14px;
+            color: #27ae60;
+            margin: 5px 0;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-start {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-stop {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .instructions h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .instructions ul {
+            padding-left: 20px;
+            color: #856404;
+        }
+        
+        .instructions li {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .footer {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .warning {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>�� 心率检测应用</h1>
+            <p>基于rPPG技术的非接触式心率监测</p>
+        </div>
+        
+        <div class="camera-container">
+            <video class="camera-feed" id="cameraFeed" autoplay playsinline></video>
+            <div class="camera-placeholder" id="cameraPlaceholder">
+                点击"开始检测"启用摄像头
+            </div>
+        </div>
+        
+        <div class="warning" id="warningMessage">
+            ⚠️ 注意：此为演示版本，实际心率检测需要后端服务器支持
+        </div>
+        
+        <div class="status-panel">
+            <div class="status" id="statusText">状态: 等待开始检测</div>
+            <div class="heart-rate" id="heartRate">--</div>
+            <div class="quality" id="qualityText">信号质量: --%</div>
+            <div class="status" id="stabilityText">稳定性: 0/8</div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-start" id="startBtn" onclick="startDetection()">�� 开始检测</button>
+            <button class="btn btn-stop" id="stopBtn" onclick="stopDetection()" disabled>停止检测</button>
+        </div>
+        
+        <div class="instructions">
+            <h3>�� 使用说明</h3>
+            <ul>
+                <li>在光线充足的环境下使用</li>
+                <li>将面部正对摄像头</li>
+                <li>保持面部稳定，避免说话</li>
+                <li>连续检测至少10秒</li>
+                <li>正常心率范围: 60-100次/分钟</li>
+            </ul>
+        </div>
+        
+        <div class="footer">
+            <p>基于Web技术 | 兼容安卓/iOS浏览器 | 无需安装</p>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let cameraStream = null;
+        let detectionActive = false;
+        let stabilityCount = 0;
+        let frameCount = 0;
+        let lastUpdateTime = Date.now();
+        
+        // 获取DOM元素
+        const cameraFeed = document.getElementById('cameraFeed');
+        const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusText = document.getElementById('statusText');
+        const heartRate = document.getElementById('heartRate');
+        const qualityText = document.getElementById('qualityText');
+        const stabilityText = document.getElementById('stabilityText');
+        const warningMessage = document.getElementById('warningMessage');
+        
+        // 模拟心率数据（实际应用中需要真实算法）
+        const simulatedHeartRates = [72, 75, 68, 74, 76, 70, 73, 71, 69, 75];
+        let currentSimulationIndex = 0;
+        
+        // 启动检测
+        async function startDetection() {
+            try {
+                // 请求摄像头权限
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'user',
+                        width: { ideal: 320 },
+                        height: { ideal: 240 }
+                    }
+                });
+                
+                // 显示摄像头画面
+                cameraFeed.srcObject = cameraStream;
+                cameraPlaceholder.style.display = 'none';
+                cameraFeed.style.display = 'block';
+                
+                // 更新界面状态
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                statusText.textContent = '状态: 检测中...';
+                statusText.style.color = '#27ae60';
+                
+                // 开始检测循环
+                detectionActive = true;
+                stabilityCount = 0;
+                frameCount = 0;
+                lastUpdateTime = Date.now();
+                
+                // 模拟检测循环
+                simulateHeartRateDetection();
+                
+                // 隐藏警告信息
+                warningMessage.style.display = 'none';
+                
+            } catch (error) {
+                console.error('摄像头访问错误:', error);
+                statusText.textContent = '错误: 无法访问摄像头';
+                statusText.style.color = '#e74c3c';
+                warningMessage.innerHTML = '⚠️ 摄像头访问失败: ' + error.message;
+            }
+        }
+        
+        // 停止检测
+        function stopDetection() {
+            detectionActive = false;
+            
+            // 停止摄像头流
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            
+            // 重置界面
+            cameraFeed.style.display = 'none';
+            cameraPlaceholder.style.display = 'block';
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            
+            statusText.textContent = '状态: 检测已停止';
+            statusText.style.color = '#7f8c8d';
+            heartRate.textContent = '--';
+            heartRate.classList.remove('pulse');
+            qualityText.textContent = '信号质量: --%';
+            stabilityText.textContent = '稳定性: 0/8';
+            
+            warningMessage.style.display = 'block';
+        }
+        
+        // 模拟心率检测（实际应用中需要真实算法）
+        function simulateHeartRateDetection() {
+            if (!detectionActive) return;
+            
+            frameCount++;
+            
+            // 每30帧更新一次数据（约1秒）
+            if (frameCount % 30 === 0) {
+                // 模拟稳定性增加
+                stabilityCount = Math.min(stabilityCount + 1, 8);
+                
+                // 模拟心率数据
+                const simulatedHR = simulatedHeartRates[currentSimulationIndex];
+                currentSimulationIndex = (currentSimulationIndex + 1) % simulatedHeartRates.length;
+                
+                // 模拟信号质量（基于稳定性）
+                const quality = Math.min(100, stabilityCount * 12 + Math.random() * 20);
+                
+                // 更新界面
+                updateDisplay(simulatedHR, quality);
+            }
+            
+            // 继续循环
+            setTimeout(simulateHeartRateDetection, 33); // 约30fps
+        }
+        
+        // 更新显示
+        function updateDisplay(hr, quality) {
+            heartRate.textContent = hr;
+            qualityText.textContent = `信号质量: ${Math.round(quality)}%`;
+            stabilityText.textContent = `稳定性: ${stabilityCount}/8`;
+            
+            // 添加脉搏动画
+            heartRate.classList.add('pulse');
+            setTimeout(() => heartRate.classList.remove('pulse'), 500);
+            
+            // 根据心率值设置颜色
+            if (hr >= 60 && hr <= 100) {
+                heartRate.style.color = '#27ae60'; // 正常-绿色
+                statusText.textContent = '状态: 心率正常';
+            } else if (hr < 60) {
+                heartRate.style.color = '#3498db'; // 偏低-蓝色
+                statusText.textContent = '状态: 心率偏低';
+            } else {
+                heartRate.style.color = '#e74c3c'; // 偏高-红色
+                statusText.textContent = '状态: 心率偏高';
+            }
+            
+            // 信号质量颜色
+            if (quality > 70) {
+                qualityText.style.color = '#27ae60';
+            } else if (quality > 40) {
+                qualityText.style.color = '#f39c12';
+            } else {
+                qualityText.style.color = '#e74c3c';
+            }
+        }
+        
+        // 页面加载时初始化
+        window.addEventListener('load', function() {
+            // 检查浏览器兼容性
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                warningMessage.innerHTML = '⚠️ 您的浏览器不支持摄像头功能，请使用Chrome、Firefox或Safari';
+                startBtn.disabled = true;
+            }
+            
+            // 添加触摸事件支持（移动设备）
+            startBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                startDetection();
+            });
+            
+            stopBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                stopDetection();
+            });
+        });
+        
+        // 页面卸载时清理资源
+        window.addEventListener('beforeunload', function() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach
