@@ -46,13 +46,23 @@ jobs:
     - name: Prepare main.py
       run: cp main_webview.py main.py
     
+    - name: Setup Buildozer SDK
+      run: |
+        # Create buildozer SDK directory structure
+        mkdir -p ~/.buildozer/android/platform/android-sdk
+        # Link the pre-installed SDK to buildozer's expected location
+        ln -sf $ANDROID_HOME/build-tools ~/.buildozer/android/platform/android-sdk/build-tools
+        ln -sf $ANDROID_HOME/platforms ~/.buildozer/android/platform/android-sdk/platforms
+        ln -sf $ANDROID_HOME/platform-tools ~/.buildozer/android/platform/android-sdk/platform-tools
+        ln -sf $ANDROID_HOME/ndk ~/.buildozer/android/platform/android-sdk/ndk
+        ls -la ~/.buildozer/android/platform/android-sdk/
+    
     - name: Build APK
       run: |
         export ANDROID_SDK_ROOT=$ANDROID_HOME
         export ANDROIDNDK=$ANDROID_HOME/ndk/25.2.9519653
         export ANDROIDAPI=28
         export ANDROIDMINAPI=21
-        export BUILDOZER_NO_UPDATE=1
         buildozer android debug
       timeout-minutes: 90
       env:
