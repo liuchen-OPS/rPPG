@@ -3,6 +3,12 @@
 warn_on_root = 0
 log_level = 2
 
+# Android SDK configuration
+android.sdk = 28
+android.build_tools = 28.0.3
+android.api = 28
+android.minapi = 21
+
 [app]
 
 # (str) Title of your application
