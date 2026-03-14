@@ -1,3 +1,8 @@
+[buildozer]
+# Buildozer configuration
+warn_on_root = 0
+log_level = 2
+
 [app]
 
 # (str) Title of your application
