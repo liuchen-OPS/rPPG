@@ -48,17 +48,10 @@ jobs:
       run: |
         cp main_webview.py main.py
     
-    - name: Accept Android SDK licenses
-      run: |
-        mkdir -p ~/.buildozer/android/platform/android-sdk
-        yes | ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager --licenses || true
-    
     - name: Build APK
       run: |
-        buildozer -v android debug
+        buildozer android debug
       timeout-minutes: 60
-      env:
-        ANDROID_SDK_HOME: ~/.buildozer/android/platform/android-sdk
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
