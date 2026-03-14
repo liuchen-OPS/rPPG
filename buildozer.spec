@@ -3,12 +3,6 @@
 warn_on_root = 0
 log_level = 2
 
-# Android SDK configuration
-android.sdk = 28
-android.build_tools = 28.0.3
-android.api = 28
-android.minapi = 21
-
 [app]
 
 # (str) Title of your application
@@ -114,16 +108,19 @@ fullscreen = 0
 #android.ndk_path =
 
 # (int) Target Android API, should be as high as possible.
-android.api = 31
+android.api = 28
 
 # (int) Minimum API your APK will support.
 android.minapi = 21
 
 # (int) Android SDK version to use
-#android.sdk = 20
+android.sdk = 28
 
 # (str) Android NDK version to use
-#android.ndk = 19b
+android.ndk = 25b
+
+# (str) Android build-tools version
+android.build_tools = 28.0.3
 
 # (bool) Use --private data storage (True) or --dir public storage (False)
 #android.private_storage = True

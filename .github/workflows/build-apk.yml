@@ -50,6 +50,9 @@ jobs:
       run: |
         export ANDROID_SDK_ROOT=$ANDROID_HOME
         export ANDROIDNDK=$ANDROID_HOME/ndk/25.2.9519653
+        export ANDROIDAPI=28
+        export ANDROIDMINAPI=21
+        export BUILDOZER_NO_UPDATE=1
         buildozer android debug
       timeout-minutes: 90
       env:
