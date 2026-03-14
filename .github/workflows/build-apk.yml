@@ -9,20 +9,20 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     
     steps:
     - uses: actions/checkout@v4
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
     
-    - name: Install system dependencies
+    - name: Install dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y \
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq \
           python3-pip \
           git \
           zip \
@@ -37,25 +37,20 @@ jobs:
           libffi-dev \
           libssl-dev \
           automake \
-          cmake
-    
-    - name: Install Python dependencies
-      run: |
+          cmake \
+          libltdl-dev
+        
         pip install --upgrade pip
         pip install buildozer cython kivy
     
     - name: Prepare main.py
-      run: |
-        cp main_webview.py main.py
+      run: cp main_webview.py main.py
     
     - name: Build APK
-      run: |
-        export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
-        mkdir -p $ANDROID_SDK_ROOT
-        yes | buildozer android debug
-      timeout-minutes: 60
+      run: buildozer android debug
+      timeout-minutes: 90
       env:
-        ANDROID_SDK_ROOT: ~/.buildozer/android/platform/android-sdk
+        BUILDOZER_WARN_ON_ROOT: 0
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
@@ -71,7 +66,5 @@ jobs:
         files: bin/*.apk
         tag_name: v${{ github.run_number }}
         name: Release v${{ github.run_number }}
-        draft: false
-        prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
