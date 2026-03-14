@@ -55,7 +55,12 @@ jobs:
         ln -sf $ANDROID_HOME/platforms ~/.buildozer/android/platform/android-sdk/platforms
         ln -sf $ANDROID_HOME/platform-tools ~/.buildozer/android/platform/android-sdk/platform-tools
         ln -sf $ANDROID_HOME/ndk ~/.buildozer/android/platform/android-sdk/ndk
+        ln -sf $ANDROID_HOME/cmdline-tools ~/.buildozer/android/platform/android-sdk/cmdline-tools
+        # Create old tools directory structure for compatibility
+        mkdir -p ~/.buildozer/android/platform/android-sdk/tools/bin
+        ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager
         ls -la ~/.buildozer/android/platform/android-sdk/
+        ls -la ~/.buildozer/android/platform/android-sdk/tools/bin/
     
     - name: Build APK
       run: |
