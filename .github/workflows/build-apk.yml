@@ -10,32 +10,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    container:
+      image: kivy/buildozer:latest
+      options: --user root
     
     steps:
     - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-    
-    - name: Install dependencies
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y -qq \
-          python3-pip git zip unzip openjdk-17-jdk \
-          autoconf libtool pkg-config \
-          zlib1g-dev libncurses5-dev libncursesw5-dev \
-          libffi-dev libssl-dev automake cmake libltdl-dev
-        
-        pip install --upgrade pip
-        pip install buildozer cython kivy
     
     - name: Prepare main.py
       run: cp main_webview.py main.py
     
     - name: Build APK
       run: |
+        # Accept Android SDK licenses automatically
+        yes | /root/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
         buildozer android debug
       timeout-minutes: 90
       env:
@@ -44,18 +32,11 @@ jobs:
     - name: Find and copy APK
       run: |
         echo "=== Looking for APK files ==="
-        # Search everywhere
-        find ~ -name "*.apk" -type f 2>/dev/null | head -20
-        # Create bin directory
+        find / -name "*.apk" -type f 2>/dev/null | head -20
         mkdir -p bin
-        # Copy found APKs
-        find ~ -name "*.apk" -type f -exec cp {} bin/ \; 2>/dev/null || true
+        find / -name "*.apk" -type f -exec cp {} bin/ \; 2>/dev/null || true
         echo "=== Contents of bin directory ==="
         ls -la bin/
-        echo "=== Contents of .buildozer ==="
-        ls -la .buildozer/ 2>/dev/null || echo "No .buildozer directory"
-        echo "=== Buildozer android platform ==="
-        ls -la .buildozer/android/platform/ 2>/dev/null || echo "No platform directory"
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
