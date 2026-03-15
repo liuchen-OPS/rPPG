@@ -36,29 +36,26 @@ jobs:
     
     - name: Build APK
       run: |
-        yes | buildozer android debug 2>&1 | tee buildozer.log || true
-        echo "=== Buildozer exit code: $? ==="
-        echo "=== Last 100 lines of log ==="
-        tail -100 buildozer.log
+        yes | buildozer android debug
       timeout-minutes: 90
       env:
         BUILDOZER_WARN_ON_ROOT: 0
     
     - name: Find and copy APK
       run: |
-        echo "Looking for APK files..."
-        # Search in current directory and buildozer directories
-        find . -name "*.apk" -type f 2>/dev/null
-        find ~/.buildozer -name "*.apk" -type f 2>/dev/null
-        # Create bin directory if not exists
+        echo "=== Looking for APK files ==="
+        # Search everywhere
+        find ~ -name "*.apk" -type f 2>/dev/null | head -20
+        # Create bin directory
         mkdir -p bin
-        # Copy any found APK to bin directory
-        find . -name "*.apk" -type f -exec cp {} bin/ \; 2>/dev/null || true
-        find ~/.buildozer -name "*.apk" -type f -exec cp {} bin/ \; 2>/dev/null || true
-        echo "Contents of bin directory:"
+        # Copy found APKs
+        find ~ -name "*.apk" -type f -exec cp {} bin/ \; 2>/dev/null || true
+        echo "=== Contents of bin directory ==="
         ls -la bin/
-        echo "Contents of .buildozer directory:"
-        ls -la .buildozer/ 2>/dev/null || true
+        echo "=== Contents of .buildozer ==="
+        ls -la .buildozer/ 2>/dev/null || echo "No .buildozer directory"
+        echo "=== Buildozer android platform ==="
+        ls -la .buildozer/android/platform/ 2>/dev/null || echo "No platform directory"
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
