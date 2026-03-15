@@ -41,6 +41,16 @@ jobs:
       env:
         BUILDOZER_WARN_ON_ROOT: 0
     
+    - name: Find and copy APK
+      run: |
+        echo "Looking for APK files..."
+        find . -name "*.apk" -type f 2>/dev/null
+        # Create bin directory if not exists
+        mkdir -p bin
+        # Copy any found APK to bin directory
+        find . -name "*.apk" -type f -exec cp {} bin/ \; 2>/dev/null || true
+        ls -la bin/
+    
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
