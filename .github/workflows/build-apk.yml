@@ -36,7 +36,10 @@ jobs:
     
     - name: Build APK
       run: |
-        yes | buildozer android debug 2>&1 | head -5000
+        yes | buildozer android debug 2>&1 | tee buildozer.log || true
+        echo "=== Buildozer exit code: $? ==="
+        echo "=== Last 100 lines of log ==="
+        tail -100 buildozer.log
       timeout-minutes: 90
       env:
         BUILDOZER_WARN_ON_ROOT: 0
@@ -44,12 +47,18 @@ jobs:
     - name: Find and copy APK
       run: |
         echo "Looking for APK files..."
+        # Search in current directory and buildozer directories
         find . -name "*.apk" -type f 2>/dev/null
+        find ~/.buildozer -name "*.apk" -type f 2>/dev/null
         # Create bin directory if not exists
         mkdir -p bin
         # Copy any found APK to bin directory
         find . -name "*.apk" -type f -exec cp {} bin/ \; 2>/dev/null || true
+        find ~/.buildozer -name "*.apk" -type f -exec cp {} bin/ \; 2>/dev/null || true
+        echo "Contents of bin directory:"
         ls -la bin/
+        echo "Contents of .buildozer directory:"
+        ls -la .buildozer/ 2>/dev/null || true
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
